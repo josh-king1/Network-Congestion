@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Congestion Control System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chart-container {
+            height: 350px;
+            position: relative;
+            overflow: hidden;
+        }
+        .status-indicator {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            transform: translate(-50%, -100%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.5s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+        .critical-node {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <nav class="bg-indigo-800 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                            </svg>
+                            <span class="text-xl font-bold">Network Congestion Control</span>
+                        </div>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-center space-x-4">
+                            <a href="#" class="px-3 py-2 rounded-md text-sm font-medium bg-indigo-900">Dashboard</a>
+                            <!-- <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Reports</a>
+                            <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Alerts</a>
+                            <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700">Settings</a> -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold text-gray-900">Network Status Dashboard</h1>
+                <div class="mt-2 flex items-center">
+                    <div class="status-indicator bg-green-500 mr-2"></div>
+                    <span class="text-sm text-gray-600">System operational - Last updated: <span id="update-time">just now</span></span>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-4 sm:px-0">
+                
+                <!-- Main Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Network Load</dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            <span id="network-load-val">73</span>%
+                                        </div>
+                                    </dd>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="relative pt-1">
+                                    <div class="flex mb-2 items-center justify-between">
+                                        <div>
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                                Current
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                                        <div id="network-load-bar" style="width:73%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            <span id="success-rate-val">98</span>%
+                                        </div>
+                                    </dd>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="relative pt-1">
+                                    <div class="flex mb-2 items-center justify-between">
+                                        <div>
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-green-600 bg-green-200">
+                                                Current
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-green-200">
+                                        <div id="success-rate-bar" style="width:98%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Packet Loss</dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            <span id="packet-loss-val">1.4</span>%
+                                        </div>
+                                    </dd>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="relative pt-1">
+                                    <div class="flex mb-2 items-center justify-between">
+                                        <div>
+                                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-yellow-600 bg-yellow-200">
+                                                Current
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-yellow-200">
+                                        <div id="packet-loss-bar" style="width:14%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-yellow-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 bg-red-500 rounded-md p-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Critical Nodes</dt>
+                                    <dd class="flex items-baseline">
+                                        <div class="text-2xl font-semibold text-gray-900">
+                                            <span id="critical-nodes-val">3</span>
+                                        </div>
+                                    </dd>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="m-1 flex flex-wrap">
+                                    <span class="bg-red-100 text-red-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">Router A</span>
+                                    <span class="bg-red-100 text-red-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">Switch 4</span>
+                                    <span class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded">Gateway 2</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <!-- Traffic Chart -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Network Traffic</h3>
+                            <div class="mt-4 chart-container">
+                                <canvas id="trafficChart"></canvas>
+                                <div id="trafficTooltip" class="tooltip"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Latency Chart -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Latency Distribution</h3>
+                            <div class="mt-4 chart-container">
+                                <canvas id="latencyChart"></canvas>
+                                <div id="latencyTooltip" class="tooltip"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Congestion Heatmap -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Congestion Points</h3>
+                            <div class="mt-4">
+                                <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/6b2edaa6-fc67-466b-8650-f25f2f4e71b8.png" alt="Network congestion heatmap showing red hotspots at router junctions and main data centers" class="rounded-md w-full" />
+                            </div>
+                            <div class="mt-4">
+                                <div class="flex justify-between text-sm text-gray-500">
+                                    <span>Low</span>
+                                    <span>Medium</span>
+                                    <span>High</span>
+                                </div>
+                                <div class="flex w-full mt-1">
+                                    <div class="h-2 flex-grow bg-green-500"></div>
+                                    <div class="h-2 flex-grow bg-yellow-500"></div>
+                                    <div class="h-2 flex-grow bg-red-500"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Solutions Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <!-- Recommended Actions -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Recommended Solutions</h3>
+                            <div class="mt-4 space-y-4">
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h4 class="text-sm font-medium text-gray-900">Load Balancing</h4>
+                                        <p class="text-sm text-gray-500">Distribute traffic across multiple paths to Router A to reduce congestion.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h4 class="text-sm font-medium text-gray-900">QoS Prioritization</h4>
+                                        <p class="text-sm text-gray-500">Implement Quality of Service rules to prioritize critical traffic types.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h4 class="text-sm font-medium text-gray-900">Link Upgrade</h4>
+                                        <p class="text-sm text-gray-500">Consider upgrading the connection between Switch 4 and Gateway 2 to 10Gbps.</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <h4 class="text-sm font-medium text-gray-900">Traffic Shaping</h4>
+                                        <p class="text-sm text-gray-500">Implement rate limiting for non-critical applications during peak hours.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Controls -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Mitigation Controls</h3>
+                            <div class="mt-4 space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Congestion Threshold</label>
+                                    <div class="flex items-center space-x-2">
+                                        <input type="range" min="50" max="95" value="85" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" id="threshold-slider">
+                                        <span id="threshold-value" class="text-sm font-medium text-gray-900 w-12 text-right">85%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Buffer Size Adjustment</label>
+                                    <select class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                        <option>Small Buffer (Low Latency)</option>
+                                        <option selected>Medium Buffer (Balanced)</option>
+                                        <option>Large Buffer (High Throughput)</option>
+                                    </select>
+                                </div>
+                                <div class="pt-2">
+                                    <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                        Apply Optimization Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Map -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Network Topology</h3>
+                            <div>
+                                <button type="button" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                    </svg>
+                                    Refresh View
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/b73bd339-bd6e-4607-8151-7d1378511703.png" alt="Interactive network topology map showing connections between routers, switches, and endpoints with highlighted congestion points" class="rounded-md w-full" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Update time every minute
+        function updateTime() {
+            const now = new Date();
+            const options = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            document.getElementById('update-time').textContent = now.toLocaleTimeString('en-US', options);
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Slider control
+        document.getElementById('threshold-slider').addEventListener('input', function() {
+            const value = this.value;
+            document.getElementById('threshold-value').textContent = `${value}%`;
+        });
+
+        // Simulate dynamic data changes
+        function simulateDynamicData() {
+            // Network load fluctuation
+            const loadVal = Math.min(100, Math.max(0, 73 + (Math.random() * 10 - 5)));
+            document.getElementById('network-load-val').textContent = Math.round(loadVal);
+            document.getElementById('network-load-bar').style.width = `${loadVal}%`;
+            document.getElementById('network-load-bar').className = 
+                `shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
+                    loadVal > 85 ? 'bg-red-500' : loadVal > 70 ? 'bg-yellow-500' : 'bg-blue-500'
+                }`;
+
+            // Packet loss fluctuation
+            const packetLoss = Math.min(5, Math.max(0.1, 1.4 + (Math.random() * 1 - 0.5))).toFixed(1);
+            document.getElementById('packet-loss-val').textContent = packetLoss;
+            const packetLossPercent = parseFloat(packetLoss) * 10;
+            document.getElementById('packet-loss-bar').style.width = `${packetLossPercent}%`;
+            document.getElementById('packet-loss-bar').className = 
+                `shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center ${
+                    packetLossPercent > 30 ? 'bg-red-500' : packetLossPercent > 15 ? 'bg-yellow-500' : 'bg-yellow-500'
+                }`;
+        }
+
+        // Initial call and every 5 seconds
+        simulateDynamicData();
+        setInterval(simulateDynamicData, 5000);
+
+        // Initialize charts
+        function initializeCharts() {
+            // Traffic Chart
+            const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+            const trafficChart = new Chart(trafficCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Inbound Traffic',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 60) + 40),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.4,
+                        fill: false
+                    }, {
+                        label: 'Outbound Traffic',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 60) + 40),
+                        borderColor: 'rgb(54, 162, 235)',
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            enabled: false,
+                            external: function(context) {
+                                const tooltip = document.getElementById('trafficTooltip');
+                                if (context.tooltip.opacity === 0) {
+                                    tooltip.style.opacity = 0;
+                                    return;
+                                }
+                                
+                                const data = context.tooltip.dataPoints;
+                                let html = '';
+                                data.forEach(point => {
+                                    html += `<div class="mb-1"><strong>${point.dataset.label}:</strong> ${point.raw} Mbps</div>`;
+                                });
+                                
+                                tooltip.innerHTML = html;
+                                tooltip.style.left = context.tooltip.caretX + 'px';
+                                tooltip.style.top = context.tooltip.caretY + 'px';
+                                tooltip.style.opacity = 1;
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Mbps'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Latency Chart
+            const latencyCtx = document.getElementById('latencyChart').getContext('2d');
+            const latencyChart = new Chart(latencyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['DC1', 'DC2', 'Edge1', 'Edge2', 'Cloud'],
+                    datasets: [{
+                        label: 'Latency (ms)',
+                        data: [12, 19, 8, 9, 22],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            enabled: false,
+                            external: function(context) {
+                                const tooltip = document.getElementById('latencyTooltip');
+                                if (context.tooltip.opacity === 0) {
+                                    tooltip.style.opacity = 0;
+                                    return;
+                                }
+                                
+                                const data = context.tooltip.dataPoints[0];
+                                tooltip.innerHTML = `<div><strong>${data.label}:</strong> ${data.raw} ms latency</div>`;
+                                tooltip.style.left = context.tooltip.caretX + 'px';
+                                tooltip.style.top = context.tooltip.caretY + 'px';
+                                tooltip.style.opacity = 1;
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'ms'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update charts periodically
+            setInterval(() => {
+                trafficChart.data.datasets.forEach(dataset => {
+                    dataset.data = dataset.data.map(() => Math.floor(Math.random() * 60) + 40);
+                });
+                trafficChart.update();
+
+                latencyChart.data.datasets[0].data = [
+                    Math.floor(Math.random() * 10) + 10,
+                    Math.floor(Math.random() * 15) + 15,
+                    Math.floor(Math.random() * 5) + 5,
+                    Math.floor(Math.random() * 5) + 5,
+                    Math.floor(Math.random() * 10) + 15
+                ];
+                latencyChart.update();
+            }, 10000);
+        }
+
+        // Initialize charts when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializeCharts);
+    </script>
+</body>
+</html>
