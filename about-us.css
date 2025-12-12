@@ -1,0 +1,33 @@
+.about-section {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .about-section .imgs img {
+        width: 450px;
+        height: 450px;
+        object-fit: cover;
+        margin-left: 2%;
+        border-radius: 50%;  /* Makes the image a perfect circle */
+    }
+
+    .about-section .about {
+        flex: 1;
+    }
+    .faq {
+            margin: 40px;
+        }
+
+        /* FIX: Tailwind overriding Bootstrap Accordion */
+.accordion-button:not(.collapsed) {
+    color: inherit !important;
+    background-color: inherit !important;
+}
+
+.accordion-body {
+    display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+    padding: 1rem !important;
+}
