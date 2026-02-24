@@ -74,15 +74,15 @@
              <h1 class="text-4xl font-bold text-center my-8">Contact us</h1>
             <form class="contact-form">
                 <label for="name">Name:</label>
-                <input type="text" id="name" name="name" required>
+                <input type="text" id="name" name="name" required style=" color: black;">
 
                 <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>
+                <input type="email" id="email" name="email" required style=" color: black;">
 
                 <label for="message">Message:</label>
-                <textarea id="message" name="message" rows="5" required></textarea>
+                <textarea id="message" name="message" rows="5" required style=" color: black;"></textarea>
 
-                <button type="submit">Submit</button>
+                <button type="submit" onclick="showAlert()">Submit</button>
             </form>
         </div>
      </main>
@@ -116,6 +116,17 @@
             menu.classList.toggle("hidden");
         });
     });
+
+    function showAlert() {
+
+        if(document.getElementById("name").value === "" || 
+           document.getElementById("email").value === "" || 
+           document.getElementById("message").value === "") {
+            alert("Please fill in all fields before submitting.");
+            return;
+        }
+        alert("Your message has been submitted successfully!");
+    }
 </script>
 </body>
 </html>
